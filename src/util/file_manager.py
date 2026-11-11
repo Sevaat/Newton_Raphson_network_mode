@@ -57,10 +57,8 @@ class FileManager(ABC):
             raise KeyError("Ключ 'LOADS' не найден в данных")
         loads_data = data.get("LOADS")
         if not isinstance(loads_data, list):
-            raise TypeError(
-                f"""Поле 'LOADS' в словаре данных, загруженных из JSON файла,
-                должно быть списком, получено {type(loads_data).__name__}"""
-            )
+            raise TypeError(f"""Поле 'LOADS' в словаре данных, загруженных из JSON файла,
+                должно быть списком, получено {type(loads_data).__name__}""")
 
         loads = []
         for load_data in loads_data:
@@ -88,10 +86,8 @@ class FileManager(ABC):
             raise KeyError("Ключ 'NODES' не найден в данных")
         nodes_data = data.get("NODES")
         if not isinstance(nodes_data, list):
-            raise TypeError(
-                f"""Поле 'NODES' в словаре данных, загруженных из JSON файла,
-                должно быть списком, получено {type(nodes_data).__name__}"""
-            )
+            raise TypeError(f"""Поле 'NODES' в словаре данных, загруженных из JSON файла,
+                должно быть списком, получено {type(nodes_data).__name__}""")
 
         nodes = []
         loads_by_name = {ld.load_name: ld for ld in loads}
@@ -101,18 +97,14 @@ class FileManager(ABC):
 
             load_names = node_payload.get("loads")
             if not isinstance(load_names, list):
-                raise TypeError(
-                    f"""Поле 'loads' у узла {node_payload.get('node_name')}
-                    должно быть списком имён, получено {type(load_names).__name__}"""
-                )
+                raise TypeError(f"""Поле 'loads' у узла {node_payload.get('node_name')}
+                    должно быть списком имён, получено {type(load_names).__name__}""")
 
             resolved: list[Load] = []
             for name in load_names:
                 if name not in loads_by_name:
-                    raise ValueError(
-                        f"""Нагрузка '{name}' (узел {node_payload.get('node_name')}) не найдена.
-                        Доступные: {list(loads_by_name)}"""
-                    )
+                    raise ValueError(f"""Нагрузка '{name}' (узел {node_payload.get('node_name')}) не найдена.
+                        Доступные: {list(loads_by_name)}""")
                 resolved.append(loads_by_name[name])
 
             node_payload["loads"] = resolved
@@ -140,39 +132,31 @@ class FileManager(ABC):
             raise KeyError("Ключ 'BRANCHES' не найден в данных")
         branches_data = data.get("BRANCHES")
         if not isinstance(branches_data, dict):
-            raise TypeError(
-                f"""Поле 'BRANCHES' в словаре данных, загруженных из JSON файла,
-                должно быть словарем, получено {type(branches_data).__name__}"""
-            )
+            raise TypeError(f"""Поле 'BRANCHES' в словаре данных, загруженных из JSON файла,
+                должно быть словарем, получено {type(branches_data).__name__}""")
 
         # получение списка линий
         lines_data = branches_data.get("LINES")
         lines = []
         if not isinstance(lines_data, list):
-            raise TypeError(
-                f"""Поле 'LINES' в словаре 'BRANCHES' должно быть списком,
-                получено {type(lines_data).__name__}"""
-            )
+            raise TypeError(f"""Поле 'LINES' в словаре 'BRANCHES' должно быть списком,
+                получено {type(lines_data).__name__}""")
         else:
             lines = get_lines_or_transformers2(lines_data, nodes, "line")
 
         transformers2_data = branches_data.get("TRANSFORMERS2")
         transformers2 = []
         if not isinstance(transformers2_data, list):
-            raise TypeError(
-                f"""Поле 'TRANSFORMERS2' в словаре 'BRANCHES' должно быть списком,
-                получено {type(transformers2_data).__name__}"""
-            )
+            raise TypeError(f"""Поле 'TRANSFORMERS2' в словаре 'BRANCHES' должно быть списком,
+                получено {type(transformers2_data).__name__}""")
         else:
             transformers2 = get_lines_or_transformers2(transformers2_data, nodes, "t2")
 
         transformers3_data = branches_data.get("TRANSFORMERS3")
         transformers3 = []
         if not isinstance(transformers3_data, list):
-            raise TypeError(
-                f"""Поле 'TRANSFORMERS3' в словаре 'BRANCHES' должно быть списком,
-                получено {type(transformers3_data).__name__}"""
-            )
+            raise TypeError(f"""Поле 'TRANSFORMERS3' в словаре 'BRANCHES' должно быть списком,
+                получено {type(transformers3_data).__name__}""")
         else:
             transformers3 = get_transformers3(transformers3_data, nodes)
 
@@ -192,10 +176,8 @@ class FileManager(ABC):
             raise KeyError("Ключ 'CALCULATION PARAMETERS' не найден в данных")
         parameters_data = data.get("CALCULATION PARAMETERS")
         if not isinstance(parameters_data, dict):
-            raise TypeError(
-                f"""Поле 'CALCULATION PARAMETERS' в словаре данных, загруженных из JSON файла,
-                должно быть словарем, получено {type(parameters_data).__name__}"""
-            )
+            raise TypeError(f"""Поле 'CALCULATION PARAMETERS' в словаре данных, загруженных из JSON файла,
+                должно быть словарем, получено {type(parameters_data).__name__}""")
 
         return Parameters.model_validate(parameters_data)
 
@@ -239,21 +221,15 @@ def get_lines_or_transformers2(branches_data: list[dict[str, Any]], nodes: list[
         node_1 = branch_payload.get("node_1")
         node_2 = branch_payload.get("node_2")
         if not isinstance(node_1, str) or not isinstance(node_2, str):
-            raise TypeError(
-                f"""Поля 'node_1' и 'node_2' у ветви {branch_payload.get('branch_name')}
-                должны быть имёнами, получены {type(node_1).__name__} и {type(node_2).__name__}"""
-            )
+            raise TypeError(f"""Поля 'node_1' и 'node_2' у ветви {branch_payload.get('branch_name')}
+                должны быть имёнами, получены {type(node_1).__name__} и {type(node_2).__name__}""")
 
         if node_1 not in nodes_by_name:
-            raise ValueError(
-                f"""Узел '{node_1}' (ветвь {branch_payload.get('branch_name')}) не найден.
-                Доступные: {list(nodes_by_name)}"""
-            )
+            raise ValueError(f"""Узел '{node_1}' (ветвь {branch_payload.get('branch_name')}) не найден.
+                Доступные: {list(nodes_by_name)}""")
         if node_2 not in nodes_by_name:
-            raise ValueError(
-                f"""Узел '{node_2}' (ветвь {branch_payload.get('branch_name')}) не найден.
-                Доступные: {list(nodes_by_name)}"""
-            )
+            raise ValueError(f"""Узел '{node_2}' (ветвь {branch_payload.get('branch_name')}) не найден.
+                Доступные: {list(nodes_by_name)}""")
 
         branch_payload["node_1"] = nodes_by_name["node_1"]
         branch_payload["node_2"] = nodes_by_name["node_2"]
@@ -288,29 +264,21 @@ def get_transformers3(branches_data: list[dict[str, Any]], nodes: list[Node]) ->
         node_2 = branch_payload.get("node_2")
         node_3 = branch_payload.get("node_3")
         if not isinstance(node_1, str) or not isinstance(node_2, str) or not isinstance(node_3, str):
-            raise TypeError(
-                f"""Поля 'node_1', 'node_2' и 'node_3' у ветви {branch_payload.get('branch_name')}
+            raise TypeError(f"""Поля 'node_1', 'node_2' и 'node_3' у ветви {branch_payload.get('branch_name')}
                 должны быть имёнами, получены:
                     {type(node_1).__name__},
                     {type(node_2).__name__},
-                    {type(node_3).__name__}"""
-            )
+                    {type(node_3).__name__}""")
 
         if node_1 not in nodes_by_name:
-            raise ValueError(
-                f"""Узел '{node_1}' (ветвь {branch_payload.get('branch_name')}) не найден.
-                Доступные: {list(nodes_by_name)}"""
-            )
+            raise ValueError(f"""Узел '{node_1}' (ветвь {branch_payload.get('branch_name')}) не найден.
+                Доступные: {list(nodes_by_name)}""")
         if node_2 not in nodes_by_name:
-            raise ValueError(
-                f"""Узел '{node_2}' (ветвь {branch_payload.get('branch_name')}) не найден.
-                Доступные: {list(nodes_by_name)}"""
-            )
+            raise ValueError(f"""Узел '{node_2}' (ветвь {branch_payload.get('branch_name')}) не найден.
+                Доступные: {list(nodes_by_name)}""")
         if node_3 not in nodes_by_name:
-            raise ValueError(
-                f"""Узел '{node_3}' (ветвь {branch_payload.get('branch_name')}) не найден.
-                Доступные: {list(nodes_by_name)}"""
-            )
+            raise ValueError(f"""Узел '{node_3}' (ветвь {branch_payload.get('branch_name')}) не найден.
+                Доступные: {list(nodes_by_name)}""")
 
         branch_payload["node_1"] = nodes_by_name["node_1"]
         branch_payload["node_2"] = nodes_by_name["node_2"]
