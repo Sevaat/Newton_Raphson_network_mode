@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any
 
 import numpy as np
 
@@ -6,12 +6,12 @@ from src.model.branch import Line, Transformer2, Transformer3
 from src.model.node import Node
 
 
-def get_conductivity_matrix(nodes: List[Node], branches: List[Any]) -> np.ndarray:
+def get_conductivity_matrix(nodes: list[Node], branches: list[Any]) -> np.ndarray:
     """Получить матрицу собственных и взаимных проводимостей с учетом вида линии
 
     Args:
-        nodes (List[Node]): список узлов
-        branches (List[Any]): список ветвей (ЛЭП, двух- и трехобмоточные трансформаторы)
+        nodes (list[Node]): список узлов
+        branches (list[Any]): список ветвей (ЛЭП, двух- и трехобмоточные трансформаторы)
 
     Returns:
         conductivity_matrix (np.ndarray): матрица собственных и взаимных проводимостей

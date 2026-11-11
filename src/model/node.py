@@ -1,5 +1,5 @@
 import math
-from typing import List, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -38,7 +38,7 @@ class Node(BaseModel):
     q_gen: int | float = Field(ge=0, le=1e10)
     q_min: int | float = Field(ge=0, le=1e10)
     q_max: int | float = Field(ge=0, le=1e10)
-    loads: List[Load] = Field(default_factory=list)
+    loads: list[Load] = Field(default_factory=list)
 
     @property
     def y_shunt(self) -> complex:
