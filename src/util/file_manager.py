@@ -1,0 +1,320 @@
+import json
+import os
+from abc import ABC
+from pathlib import Path
+from typing import Any
+
+from src.model.branch import Line, Transformer2, Transformer3
+from src.model.load import Load
+from src.model.node import Node
+from src.model.parameters import Parameters
+
+
+class FileManager(ABC):
+    """
+    Класс работы с файлами
+    """
+
+    @staticmethod
+    def _load_data(filename: str) -> dict[str, Any]:
+        """
+        Загрузить данные из JSON
+
+        Args:
+            filename (str): имя файла JSON в папке 'data'
+
+        Returns:
+            Dict[str, Any]: словарь данных, загруженных из JSON файла
+        """
+
+        filepath = str(Path(__file__).resolve().parent.parent.parent / "data")
+        os.makedirs(filepath, exist_ok=True)
+        filepath = f"{filepath}/{filename}"
+        data = {}
+        try:
+            with open(filepath, "r", encoding="utf-8") as file:
+                data = json.load(file)
+            print("Файл успешно загружен")
+        except FileNotFoundError as e:
+            print(f"Файл не найден: {e}")
+        except json.JSONDecodeError as e:
+            print(f"Ошибка в формате JSON: {e}")
+        except Exception as e:
+            print(f"Произошла ошибка при загрузке файла: {e}")
+        return data
+
+    @staticmethod
+    def _load_loads(data: dict[str, Any]) -> list[Load]:
+        """Загрузить данные нагрузок
+
+        Args:
+            data (dict[str, Any]): словарь данных, загруженных из JSON файла
+
+        Returns:
+            list[Load]: данные о нагрузках
+        """
+        if "LOADS" not in data:
+            raise KeyError("Ключ 'LOADS' не найден в данных")
+        loads_data = data.get("LOADS")
+        if not isinstance(loads_data, list):
+            raise TypeError(
+                f"""Поле 'LOADS' в словаре данных, загруженных из JSON файла,
+                должно быть списком, получено {type(loads_data).__name__}"""
+            )
+
+        loads = []
+        for load_data in loads_data:
+            loads.append(Load.model_validate(load_data))
+
+        # проверка на повторения имен
+        load_names = [ld.load_name for ld in loads]
+        if len(load_names) != len(set(load_names)):
+            raise ValueError("Имеются повторения имен нагрузок")
+
+        return loads
+
+    @staticmethod
+    def _load_nodes(data: dict[str, Any], loads: list[Load]) -> list[Node]:
+        """Загрузить данные узлов
+
+        Args:
+            data (dict[str, Any]): словарь данных, загруженных из JSON файла
+            loads (list[Load]): список нагрузок
+
+        Returns:
+            list[Node]: данные об узлах
+        """
+        if "NODES" not in data:
+            raise KeyError("Ключ 'NODES' не найден в данных")
+        nodes_data = data.get("NODES")
+        if not isinstance(nodes_data, list):
+            raise TypeError(
+                f"""Поле 'NODES' в словаре данных, загруженных из JSON файла,
+                должно быть списком, получено {type(nodes_data).__name__}"""
+            )
+
+        nodes = []
+        loads_by_name = {ld.load_name: ld for ld in loads}
+
+        for node_data in nodes_data:
+            node_payload = dict(node_data)
+
+            load_names = node_payload.get("loads")
+            if not isinstance(load_names, list):
+                raise TypeError(
+                    f"""Поле 'loads' у узла {node_payload.get('node_name')}
+                    должно быть списком имён, получено {type(load_names).__name__}"""
+                )
+
+            resolved: list[Load] = []
+            for name in load_names:
+                if name not in loads_by_name:
+                    raise ValueError(
+                        f"""Нагрузка '{name}' (узел {node_payload.get('node_name')}) не найдена.
+                        Доступные: {list(loads_by_name)}"""
+                    )
+                resolved.append(loads_by_name[name])
+
+            node_payload["loads"] = resolved
+            nodes.append(Node.model_validate(node_payload))
+
+        # проверка на повторения имен
+        node_names = [nd.node_name for nd in nodes]
+        if len(node_names) != len(set(node_names)):
+            raise ValueError("Имеются повторения имен узлов")
+
+        return nodes
+
+    @staticmethod
+    def _load_branches(data: dict[str, Any], nodes: list[Node]) -> list[Line | Transformer2 | Transformer3]:
+        """Загрузить данные ветвей
+
+        Args:
+            data (dict[str, Any]): словарь данных, загруженных из JSON файла
+            nodes (list[Node]): список узлов
+
+        Returns:
+            list[Branch]: данные о ветвях
+        """
+        if "BRANCHES" not in data:
+            raise KeyError("Ключ 'BRANCHES' не найден в данных")
+        branches_data = data.get("BRANCHES")
+        if not isinstance(branches_data, dict):
+            raise TypeError(
+                f"""Поле 'BRANCHES' в словаре данных, загруженных из JSON файла,
+                должно быть словарем, получено {type(branches_data).__name__}"""
+            )
+
+        # получение списка линий
+        lines_data = branches_data.get("LINES")
+        lines = []
+        if not isinstance(lines_data, list):
+            raise TypeError(
+                f"""Поле 'LINES' в словаре 'BRANCHES' должно быть списком,
+                получено {type(lines_data).__name__}"""
+            )
+        else:
+            lines = get_lines_or_transformers2(lines_data, nodes, "line")
+
+        transformers2_data = branches_data.get("TRANSFORMERS2")
+        transformers2 = []
+        if not isinstance(transformers2_data, list):
+            raise TypeError(
+                f"""Поле 'TRANSFORMERS2' в словаре 'BRANCHES' должно быть списком,
+                получено {type(transformers2_data).__name__}"""
+            )
+        else:
+            transformers2 = get_lines_or_transformers2(transformers2_data, nodes, "t2")
+
+        transformers3_data = branches_data.get("TRANSFORMERS3")
+        transformers3 = []
+        if not isinstance(transformers3_data, list):
+            raise TypeError(
+                f"""Поле 'TRANSFORMERS3' в словаре 'BRANCHES' должно быть списком,
+                получено {type(transformers3_data).__name__}"""
+            )
+        else:
+            transformers3 = get_transformers3(transformers3_data, nodes)
+
+        return lines + transformers2 + transformers3
+
+    @staticmethod
+    def _load_parameter(data: dict[str, Any]) -> Parameters:
+        """Загрузить данные параметров расчета
+
+        Args:
+            data (dict[str, Any]): словарь данных, загруженных из JSON файла
+
+        Returns:
+            Parameters: данные параметров расчета
+        """
+        if "CALCULATION PARAMETERS" not in data:
+            raise KeyError("Ключ 'CALCULATION PARAMETERS' не найден в данных")
+        parameters_data = data.get("CALCULATION PARAMETERS")
+        if not isinstance(parameters_data, dict):
+            raise TypeError(
+                f"""Поле 'CALCULATION PARAMETERS' в словаре данных, загруженных из JSON файла,
+                должно быть словарем, получено {type(parameters_data).__name__}"""
+            )
+
+        return Parameters.model_validate(parameters_data)
+
+    @staticmethod
+    def load(filename: str = "data.json") -> tuple[list[Load], list[Node], list[Any], Parameters]:
+        """Загрузить данные из JSON
+
+        Args:
+            filename (str, optional): название файла JSON в папке 'data' (по умолчанию "data.json")
+
+        Returns:
+            tuple[list[Load], list[Node], list[Branch], Parameters]: данные о сети и расчете
+        """
+        data = FileManager._load_data(filename)
+        loads = FileManager._load_loads(data)
+        nodes = FileManager._load_nodes(data, loads)
+        branches = FileManager._load_branches(data, nodes)
+        parameters = FileManager._load_parameter(data)
+
+        return loads, nodes, branches, parameters
+
+
+def get_lines_or_transformers2(branches_data: list[dict[str, Any]], nodes: list[Node], type_branch: str) -> list[Any]:
+    """
+    Получить список линий или двухобмоточных трансформаторов с указанием на экземпляры узлов
+
+    Args:
+        branches_data (list[dict[str, Any]]): список данных линий или двухобмоточных трансформаторов
+        nodes (list[Node]): список узлов
+        type_branch (str): тип ветви (line, t2)
+
+    Returns:
+        list[Any]: список линий или двухобмоточных трансформаторов
+    """
+    branches: list[Any] = []
+    nodes_by_name = {nd.node_name: nd for nd in nodes}
+
+    for branch_data in branches_data:
+        branch_payload = dict(branch_data)
+
+        node_1 = branch_payload.get("node_1")
+        node_2 = branch_payload.get("node_2")
+        if not isinstance(node_1, str) or not isinstance(node_2, str):
+            raise TypeError(
+                f"""Поля 'node_1' и 'node_2' у ветви {branch_payload.get('branch_name')}
+                должны быть имёнами, получены {type(node_1).__name__} и {type(node_2).__name__}"""
+            )
+
+        if node_1 not in nodes_by_name:
+            raise ValueError(
+                f"""Узел '{node_1}' (ветвь {branch_payload.get('branch_name')}) не найден.
+                Доступные: {list(nodes_by_name)}"""
+            )
+        if node_2 not in nodes_by_name:
+            raise ValueError(
+                f"""Узел '{node_2}' (ветвь {branch_payload.get('branch_name')}) не найден.
+                Доступные: {list(nodes_by_name)}"""
+            )
+
+        branch_payload["node_1"] = nodes_by_name["node_1"]
+        branch_payload["node_2"] = nodes_by_name["node_2"]
+        if type_branch == "line":
+            branches.append(Line.model_validate(branch_payload))
+        elif type_branch == "t2":
+            branches.append(Transformer2.model_validate(branch_payload))
+        else:
+            raise ValueError(f"Неверный тип ветви {type_branch}. Доступные варианты: 'line', 't2'")
+
+    return branches
+
+
+def get_transformers3(branches_data: list[dict[str, Any]], nodes: list[Node]) -> list[Transformer3]:
+    """
+    Получить список трехобмоточных трансформаторов с указанием на экземпляры узлов
+
+    Args:
+        branches_data (list[dict[str, Any]]): список данных трехобмоточных трансформаторов
+        nodes (list[Node]): список узлов
+
+    Returns:
+        list[Transformer3]: список трехобмоточных трансформаторов
+    """
+    branches = []
+    nodes_by_name = {nd.node_name: nd for nd in nodes}
+
+    for branch_data in branches_data:
+        branch_payload = dict(branch_data)
+
+        node_1 = branch_payload.get("node_1")
+        node_2 = branch_payload.get("node_2")
+        node_3 = branch_payload.get("node_3")
+        if not isinstance(node_1, str) or not isinstance(node_2, str) or not isinstance(node_3, str):
+            raise TypeError(
+                f"""Поля 'node_1', 'node_2' и 'node_3' у ветви {branch_payload.get('branch_name')}
+                должны быть имёнами, получены:
+                    {type(node_1).__name__},
+                    {type(node_2).__name__},
+                    {type(node_3).__name__}"""
+            )
+
+        if node_1 not in nodes_by_name:
+            raise ValueError(
+                f"""Узел '{node_1}' (ветвь {branch_payload.get('branch_name')}) не найден.
+                Доступные: {list(nodes_by_name)}"""
+            )
+        if node_2 not in nodes_by_name:
+            raise ValueError(
+                f"""Узел '{node_2}' (ветвь {branch_payload.get('branch_name')}) не найден.
+                Доступные: {list(nodes_by_name)}"""
+            )
+        if node_3 not in nodes_by_name:
+            raise ValueError(
+                f"""Узел '{node_3}' (ветвь {branch_payload.get('branch_name')}) не найден.
+                Доступные: {list(nodes_by_name)}"""
+            )
+
+        branch_payload["node_1"] = nodes_by_name["node_1"]
+        branch_payload["node_2"] = nodes_by_name["node_2"]
+        branch_payload["node_3"] = nodes_by_name["node_3"]
+        branches.append(Transformer3.model_validate(branch_payload))
+
+    return branches
