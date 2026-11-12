@@ -1,6 +1,7 @@
 import json
 import logging
 from abc import ABC
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -141,23 +142,31 @@ class FileManager(ABC):
         # получение списка линий
         lines_data = branches_data.get("LINES")
         lines = []
-        if not isinstance(lines_data, list):
+        if lines_data is None:
+            pass
+        elif not isinstance(lines_data, list):
             raise TypeError(f"""Поле 'LINES' в словаре 'BRANCHES' должно быть списком,
                 получено {type(lines_data).__name__}""")
         else:
             lines = get_lines_or_transformers2(lines_data, nodes, "line")
 
+        # получение списка трансформаторов 2
         transformers2_data = branches_data.get("TRANSFORMERS2")
         transformers2 = []
-        if not isinstance(transformers2_data, list):
+        if transformers2_data is None:
+            pass
+        elif not isinstance(transformers2_data, list):
             raise TypeError(f"""Поле 'TRANSFORMERS2' в словаре 'BRANCHES' должно быть списком,
                 получено {type(transformers2_data).__name__}""")
         else:
             transformers2 = get_lines_or_transformers2(transformers2_data, nodes, "t2")
 
+        # получение списка трансформаторов 3
         transformers3_data = branches_data.get("TRANSFORMERS3")
         transformers3 = []
-        if not isinstance(transformers3_data, list):
+        if transformers3_data is None:
+            pass
+        elif not isinstance(transformers3_data, list):
             raise TypeError(f"""Поле 'TRANSFORMERS3' в словаре 'BRANCHES' должно быть списком,
                 получено {type(transformers3_data).__name__}""")
         else:
@@ -185,7 +194,7 @@ class FileManager(ABC):
         return Parameters.model_validate(parameters_data)
 
     @staticmethod
-    def load(filename: str = "data.json") -> tuple[list[Load], list[Node], list[Any], Parameters]:
+    def load(filename: str) -> tuple[list[Load], list[Node], list[Any], Parameters]:
         """Загрузить данные из JSON
 
         Args:
@@ -201,6 +210,99 @@ class FileManager(ABC):
         parameters = FileManager._load_parameter(data)
 
         return loads, nodes, branches, parameters
+
+    @staticmethod
+    def _save_data(data: dict[str, Any], filename: str):
+        """
+        Сохранить данные в JSON в папке 'result' (корень проекта, рядом с 'data')
+
+        Args:
+            data (dict[str, Any]): данные для сохранения
+            filename (str): имя файла JSON
+
+        Raises:
+            ValueError: данные не сериализуются в JSON
+            OSError: не удалось создать папку или записать файл
+        """
+        directory = Path(__file__).resolve().parent.parent.parent / "result"
+        directory.mkdir(parents=True, exist_ok=True)
+        filepath = directory / filename
+        try:
+            with open(filepath, "w", encoding="utf-8") as file:
+                json.dump(data, file, ensure_ascii=False, indent=2)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Данные не сериализуются в JSON: {e}") from e
+        except OSError as e:
+            raise OSError(f"Не удалось сохранить файл результатов: {filepath}") from e
+        logger.info("Результаты сохранены: %s", filepath)
+
+    @staticmethod
+    def save(
+        loads: list[Load],
+        nodes: list[Node],
+        branches: list[Any],
+        parameters: Parameters,
+        slack_powers: list[Any] | None = None,
+        flows: list[Any] | None = None,
+    ):
+        """
+        Сохранить результаты расчета установившегося режима в JSON (папка 'result')
+
+        Args:
+            nodes (list[Node]): узлы после расчета
+            branches (list[Any]): ветви сети
+            parameters (Parameters): параметры расчета
+            slack_powers (list[Any] | None): мощности балансирующих узлов (SlackPower), опционально
+            flows (list[Any] | None): потоки в ветвях (BranchFlow), опционально
+        """
+        filename = f"result_{datetime.now()}.json"
+
+        branch_line_results = []
+        branch_t2_results = []
+        branch_t3_results = []
+        for branch in branches:
+            branch_dict = branch.model_dump()
+            branch_dict["node_1"] = branch.node_1.node_name
+            branch_dict["node_2"] = branch.node_2.node_name
+            if isinstance(branch, Transformer3):
+                branch_dict["node_3"] = branch.node_3.node_name
+                branch_t3_results.append(branch_dict)
+                continue
+            elif isinstance(branch, Transformer2):
+                branch_t2_results.append(branch_dict)
+                continue
+            branch_line_results.append(branch_dict)
+
+        dict_branches = {}
+        if len(branch_line_results):
+            dict_branches["LINES"] = branch_line_results
+        if len(branch_t2_results):
+            dict_branches["TRANSFORMERS2"] = branch_t2_results
+        if len(branch_t3_results):
+            dict_branches["TRANSFORMERS3"] = branch_t3_results
+
+        node_results = []
+        for node in nodes:
+            node_dict = node.model_dump()
+            if len(node_dict["loads"]):
+                node_dict["loads"] = [load["load_name"] for load in node_dict["loads"]]
+            node_results.append(node_dict)
+
+        data: dict[str, Any] = {
+            "CALCULATION PARAMETERS": parameters.model_dump(),
+            "LOADS": [load.model_dump() for load in loads],
+            "NODES": node_results,
+            "BRANCHES": dict_branches,
+        }
+        if slack_powers is not None:
+            data["SLACK POWERS"] = [item.model_dump() for item in slack_powers]
+        if flows is not None:
+            data["BRANCH FLOWS"] = [item.model_dump() for item in flows]
+            data["TOTAL LOSSES"] = {
+                "dp": sum(item.dp for item in flows),
+                "dq": sum(item.dq for item in flows),
+            }
+        FileManager._save_data(data, filename)
 
 
 def get_lines_or_transformers2(branches_data: list[dict[str, Any]], nodes: list[Node], type_branch: str) -> list[Any]:
