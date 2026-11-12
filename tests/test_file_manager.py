@@ -124,11 +124,19 @@ class TestLoadBranches:
             FileManager._load_branches({"BRANCHES": []}, nodes)
 
     @pytest.mark.parametrize("missing", ["LINES", "TRANSFORMERS2", "TRANSFORMERS3"])
-    def test_missing_branch_lists(self, nodes, missing):
-        # пустые списки, чтобы не задеть баг с литералом 'node_1' до проверяемого места
+    def test_missing_branch_lists_are_optional(self, nodes, missing):
         base = {"LINES": [], "TRANSFORMERS2": [], "TRANSFORMERS3": []}
         data = {"BRANCHES": {k: v for k, v in base.items() if k != missing}}
-        with pytest.raises(TypeError, match=missing):
+        assert FileManager._load_branches(data, nodes) == []
+
+    def test_empty_branches_dict(self, nodes):
+        assert FileManager._load_branches({"BRANCHES": {}}, nodes) == []
+
+    @pytest.mark.parametrize("key", ["LINES", "TRANSFORMERS2", "TRANSFORMERS3"])
+    def test_wrong_branch_list_type(self, nodes, key):
+        base = {"LINES": [], "TRANSFORMERS2": [], "TRANSFORMERS3": []}
+        data = {"BRANCHES": dict(base, **{key: "не список"})}
+        with pytest.raises(TypeError, match=key):
             FileManager._load_branches(data, nodes)
 
     def test_happy_path(self, nodes):
@@ -179,7 +187,49 @@ class TestLoadParameter:
 def test_load_full_scenario(data_dir):
     (data_dir / "data").mkdir()
     (data_dir / "data" / "data.json").write_text(json.dumps(FULL_DATA), encoding="utf-8")
-    loads, nodes, branches, parameters = FileManager.load()
+    loads, nodes, branches, parameters = FileManager.load("data.json")
     assert len(loads) == 1 and len(nodes) == 2 and len(branches) == 1
     assert branches[0].node_1 is nodes[0]
     assert parameters.accuracy == 1e-6
+
+class TestSaveData:
+    def test_save_and_read_back(self, data_dir):
+        FileManager._save_data({"a": 1}, "out.json")
+        saved = json.loads((data_dir / "result" / "out.json").read_text(encoding="utf-8"))
+        assert saved == {"a": 1}
+
+    def test_non_serializable_raises(self, data_dir):
+        with pytest.raises(ValueError, match="не сериализуются"):
+            FileManager._save_data({"x": {1, 2}}, "bad.json")  # set не сериализуется
+
+
+class TestSave:
+    def test_save_load_round_trip(self, data_dir, two_bus, params):
+        """Формат save() должен читаться load(): узлы и нагрузки — по именам."""
+        nodes, branches = two_bus
+        FileManager.save([nodes[1].loads[0]], nodes, branches, params)
+        files = list((data_dir / "result").glob("result_*.json"))
+        assert len(files) == 1
+        data = json.loads(files[0].read_text(encoding="utf-8"))
+        assert data["NODES"][1]["loads"] == ["L1"]
+        assert data["BRANCHES"]["LINES"][0]["node_1"] == "1"
+        assert "TRANSFORMERS2" not in data["BRANCHES"]  # пустые группы опускаются
+
+        (data_dir / "data").mkdir()
+        (data_dir / "data" / files[0].name).write_bytes(files[0].read_bytes())
+        loads2, nodes2, branches2, params2 = FileManager.load(files[0].name)
+        assert [n.node_name for n in nodes2] == ["1", "2"]
+        assert branches2[0].node_1 is nodes2[0]
+        assert params2.accuracy == params.accuracy
+
+    def test_save_with_results(self, data_dir, two_bus, params):
+        from src.postprocessing import calc_results
+        nodes, branches = two_bus
+        slacks, flows = calc_results(nodes, branches)
+        FileManager.save([nodes[1].loads[0]], nodes, branches, params, slacks, flows)
+        files = list((data_dir / "result").glob("result_*.json"))
+        data = json.loads(files[0].read_text(encoding="utf-8"))
+        assert len(data["SLACK POWERS"]) == 1
+        assert len(data["BRANCH FLOWS"]) == 1
+        assert data["TOTAL LOSSES"]["dp"] == pytest.approx(sum(f.dp for f in flows))
+        assert data["TOTAL LOSSES"]["dq"] == pytest.approx(sum(f.dq for f in flows))

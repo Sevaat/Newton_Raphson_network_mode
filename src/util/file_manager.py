@@ -198,7 +198,7 @@ class FileManager(ABC):
         """Загрузить данные из JSON
 
         Args:
-            filename (str, optional): название файла JSON в папке 'data' (по умолчанию "data.json")
+            filename (str, optional): название файла JSON в папке 'data'
 
         Returns:
             tuple[list[Load], list[Node], list[Branch], Parameters]: данные о сети и расчете
