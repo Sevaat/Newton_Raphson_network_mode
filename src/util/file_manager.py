@@ -1,5 +1,5 @@
 import json
-import os
+import logging
 from abc import ABC
 from pathlib import Path
 from typing import Any
@@ -8,6 +8,8 @@ from src.model.branch import Line, Transformer2, Transformer3
 from src.model.load import Load
 from src.model.node import Node
 from src.model.parameters import Parameters
+
+logger = logging.getLogger(__name__)
 
 
 class FileManager(ABC):
@@ -25,22 +27,23 @@ class FileManager(ABC):
 
         Returns:
             Dict[str, Any]: словарь данных, загруженных из JSON файла
+
+        Raises:
+            FileNotFoundError: файл данных не найден
+            ValueError: некорректный JSON или корень не является объектом
         """
 
-        filepath = str(Path(__file__).resolve().parent.parent.parent / "data")
-        os.makedirs(filepath, exist_ok=True)
-        filepath = f"{filepath}/{filename}"
-        data = {}
+        filepath = Path(__file__).resolve().parent.parent.parent / "data" / filename
         try:
             with open(filepath, "r", encoding="utf-8") as file:
                 data = json.load(file)
-            print("Файл успешно загружен")
         except FileNotFoundError as e:
-            print(f"Файл не найден: {e}")
+            raise FileNotFoundError(f"Файл данных не найден: {filepath}") from e
         except json.JSONDecodeError as e:
-            print(f"Ошибка в формате JSON: {e}")
-        except Exception as e:
-            print(f"Произошла ошибка при загрузке файла: {e}")
+            raise ValueError(f"Ошибка формата JSON в файле {filepath}: {e}") from e
+        if not isinstance(data, dict):
+            raise TypeError(f"Корень JSON в файле {filepath} должен быть словарем, получено {type(data).__name__}")
+        logger.info("Файл данных загружен: %s", filepath)
         return data
 
     @staticmethod
@@ -231,8 +234,8 @@ def get_lines_or_transformers2(branches_data: list[dict[str, Any]], nodes: list[
             raise ValueError(f"""Узел '{node_2}' (ветвь {branch_payload.get('branch_name')}) не найден.
                 Доступные: {list(nodes_by_name)}""")
 
-        branch_payload["node_1"] = nodes_by_name["node_1"]
-        branch_payload["node_2"] = nodes_by_name["node_2"]
+        branch_payload["node_1"] = nodes_by_name[node_1]
+        branch_payload["node_2"] = nodes_by_name[node_2]
         if type_branch == "line":
             branches.append(Line.model_validate(branch_payload))
         elif type_branch == "t2":
@@ -280,9 +283,9 @@ def get_transformers3(branches_data: list[dict[str, Any]], nodes: list[Node]) ->
             raise ValueError(f"""Узел '{node_3}' (ветвь {branch_payload.get('branch_name')}) не найден.
                 Доступные: {list(nodes_by_name)}""")
 
-        branch_payload["node_1"] = nodes_by_name["node_1"]
-        branch_payload["node_2"] = nodes_by_name["node_2"]
-        branch_payload["node_3"] = nodes_by_name["node_3"]
+        branch_payload["node_1"] = nodes_by_name[node_1]
+        branch_payload["node_2"] = nodes_by_name[node_2]
+        branch_payload["node_3"] = nodes_by_name[node_3]
         branches.append(Transformer3.model_validate(branch_payload))
 
     return branches
