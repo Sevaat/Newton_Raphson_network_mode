@@ -16,14 +16,22 @@ def get_conductivity_matrix(nodes: list[Node], branches: list[Any]) -> np.ndarra
     Returns:
         conductivity_matrix (np.ndarray): матрица собственных и взаимных проводимостей
     """
-    lines = [branch for branch in branches if isinstance(branch, Line)]
-    transformers_2 = [branch for branch in branches if isinstance(branch, Transformer2)]
-    transformers_3 = [branch for branch in branches if isinstance(branch, Transformer3)]
+    lines = []
+    transformers_2 = []
+    transformers_3 = []
+
+    for branch in branches:
+        if isinstance(branch, Line):
+            lines.append(branch)
+        if isinstance(branch, Transformer2) and not isinstance(branch, Transformer3):
+            transformers_2.append(branch)
+        if isinstance(branch, Transformer3):
+            transformers_3.append(branch)
 
     conductivity_matrix: np.ndarray = np.zeros((len(nodes), len(nodes)), dtype=complex)
 
     for i, node in enumerate(nodes):
-        conductivity_matrix[i, i] += node.y_shunt.conjugate()
+        conductivity_matrix[i, i] += node.y_shunt
 
     for line in lines:
         i = nodes.index(line.node_1)
@@ -33,8 +41,8 @@ def get_conductivity_matrix(nodes: list[Node], branches: list[Any]) -> np.ndarra
         y = 1 / line.z_1
         conductivity_matrix[i, j] += -y
         conductivity_matrix[j, i] += -y
-        conductivity_matrix[i, i] += y + y0.conjugate() / 2
-        conductivity_matrix[j, j] += y + y0.conjugate() / 2
+        conductivity_matrix[i, i] += y + y0 / 2
+        conductivity_matrix[j, j] += y + y0 / 2
 
     for tr_2 in transformers_2:
         i = nodes.index(tr_2.node_1)

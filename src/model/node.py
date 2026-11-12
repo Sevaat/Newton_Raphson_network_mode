@@ -1,7 +1,7 @@
 import math
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from src.model.load import Load
 
@@ -23,7 +23,8 @@ class Node(BaseModel):
         q_gen (int | float): реактивная мощность генерации, МВА
         q_min (int | float): минимальный предел реактивной мощности генерации, Мвар
         q_max (int | float): максимальный предел реактивной мощности генерации, Мвар
-        loads (List[Load]): список подключенных нагрузок
+        loads (list[Load]): список подключенных нагрузок
+        u_setpoint (int | float): уставка (заданное неизменяемое) напряжения PU/SLACK узла, кВ
     """
 
     node_name: str
@@ -39,6 +40,7 @@ class Node(BaseModel):
     q_min: int | float = Field(ge=0, le=1e10)
     q_max: int | float = Field(ge=0, le=1e10)
     loads: list[Load] = Field(default_factory=list)
+    u_setpoint: int | float = Field(gt=0, le=1e10)
 
     @property
     def y_shunt(self) -> complex:
@@ -63,3 +65,11 @@ class Node(BaseModel):
     def power_gen(self) -> complex:
         """Получить фактическую мощность узла, учитывая генерацию и нагрузку"""
         return complex(-self.p_gen, -self.q_gen)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _init_u_setpoint(cls, data: Any) -> Any:
+        """Если уставка не задана явно, принять за нее начальное u_magnitude"""
+        if isinstance(data, dict) and data.get("u_setpoint") is None:
+            return {**data, "u_setpoint": data.get("u_magnitude")}
+        return data

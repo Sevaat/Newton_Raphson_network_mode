@@ -1,3 +1,4 @@
+import logging
 import math
 from abc import ABC
 from typing import Any
@@ -8,6 +9,12 @@ from src.model.conductivity_matrix import get_conductivity_matrix
 from src.model.load import Load
 from src.model.node import Node
 from src.model.parameters import Parameters
+
+logger = logging.getLogger(__name__)
+
+
+class ConvergenceError(RuntimeError):
+    """Расчет установившегося режима не сошелся или разошелся."""
 
 
 class NewtonRaphsonMethod(ABC):
@@ -41,6 +48,22 @@ class NewtonRaphsonMethod(ABC):
         return d_power
 
     @staticmethod
+    def _mismatch_norm(nodes: list[Node], d_power: list[complex]) -> float:
+        """
+        Максимальный небаланс по проверяемым уравнениям: P — кроме slack, Q — кроме slack и текущих PU
+
+        Args:
+            nodes (list[Node]): список узлов электрической сети
+            d_power (list[complex]): список небалансов мощности в узлах
+
+        Returns:
+            float: максимальный небаланс по проверяемым уравнениям
+        """
+        values = [abs(d_power[i].real) for i in NewtonRaphsonMethod._angle_indices(nodes)]
+        values += [abs(d_power[i].imag) for i in NewtonRaphsonMethod._magnitude_indices(nodes)]
+        return max(values, default=0.0)
+
+    @staticmethod
     def _unbalance_condition(nodes: list[Node], parameters: Parameters, d_power: list[complex]) -> bool:
         """Проверить достигнута ли заданная точность расчета
 
@@ -52,14 +75,7 @@ class NewtonRaphsonMethod(ABC):
         Returns:
             bool: True, если точность достигнута, False в противном случае
         """
-        for i, p_imb in enumerate(d_power):
-            if (
-                nodes[i].type_node != "slack"
-                and abs(p_imb.real) > parameters.accuracy
-                or abs(p_imb.imag) > parameters.accuracy
-            ):
-                return False
-        return True
+        return NewtonRaphsonMethod._mismatch_norm(nodes, d_power) <= parameters.accuracy
 
     @staticmethod
     def _get_h_matrix(nodes: list[Node], conductivity_matrix: numpy.ndarray) -> numpy.ndarray:
@@ -88,10 +104,11 @@ class NewtonRaphsonMethod(ABC):
                 if i == j:
                     for k in range(len(nodes)):
                         value_under_the_sum = 0
-                        value_under_the_sum += g_nic[i, k] * math.sin(u_angle[k] - u_angle[i])
-                        value_under_the_sum += b_nic[i, k] * math.cos(u_angle[i] - u_angle[k])
-                        value_under_the_sum *= u_magnitude[k]
-                        value += value_under_the_sum
+                        if k != i:
+                            value_under_the_sum += g_nic[i, k] * math.sin(u_angle[k] - u_angle[i])
+                            value_under_the_sum += b_nic[i, k] * math.cos(u_angle[i] - u_angle[k])
+                            value_under_the_sum *= u_magnitude[k]
+                            value += value_under_the_sum
                     value *= u_magnitude[i]
                 else:
                     value = g_nic[i, j] * math.sin(u_angle[i] - u_angle[j])
@@ -231,10 +248,11 @@ class NewtonRaphsonMethod(ABC):
                 if i == j:
                     for k in range(len(nodes)):
                         value_under_the_sum = 0.0
-                        value_under_the_sum += g_nic[i, k] * math.cos(u_angle[i] - u_angle[k])
-                        value_under_the_sum -= b_nic[i, k] * math.sin(u_angle[k] - u_angle[i])
-                        value_under_the_sum *= u_magnitude[k]
-                        value += value_under_the_sum
+                        if k != i:
+                            value_under_the_sum += g_nic[i, k] * math.cos(u_angle[i] - u_angle[k])
+                            value_under_the_sum -= b_nic[i, k] * math.sin(u_angle[k] - u_angle[i])
+                            value_under_the_sum *= u_magnitude[k]
+                            value += value_under_the_sum
                     value *= u_magnitude[i]
                 else:
                     value = -g_nic[i, j] * math.cos(u_angle[i] - u_angle[j])
@@ -309,29 +327,56 @@ class NewtonRaphsonMethod(ABC):
         return jacobian
 
     @staticmethod
+    def _angle_indices(nodes: list[Node]) -> list[int]:
+        """
+        Индексы узлов с неизвестным углом (все, кроме slack)
+
+        Args:
+            nodes (list[Node]): список узлов электрической сети
+
+        Returns:
+            list[int]: номера узлов, не являющиеся slack
+        """
+        return [i for i, node in enumerate(nodes) if node.type_node != "slack"]
+
+    @staticmethod
+    def _magnitude_indices(nodes: list[Node]) -> list[int]:
+        """
+        Индексы узлов с неизвестным модулем (кроме slack и текущих PU)
+
+        Args:
+            nodes (list[Node]): список узлов электрической сети
+
+        Returns:
+            list[int]: номера узлов, не являющиеся slack и pu
+        """
+        return [i for i, node in enumerate(nodes) if node.type_node != "slack" and node.type_node_current != "pu"]
+
+    @staticmethod
     def _get_adjustments(nodes: list[Node], d_power: list[complex], jacobian: numpy.ndarray) -> numpy.ndarray:
-        """Получить корректировки по углу и по модулю напряжения
+        """
+        Получить поправки в блочном порядке [Δδ…, ΔV…], соответствующем якобиану [[H,N],[M,L]]
 
         Args:
             nodes (list[Node]): список узлов электрической сети
             d_power (list[complex]): список небалансов мощности в узлах
-            jacobian (numpy.ndarray): матрица Якоби
+            jacobian (numpy.ndarray): полная матрица Якоби в полярных координатах
 
         Returns:
             numpy.ndarray: массив корректировок по углу и модулю напряжения в узлах
         """
-        delta = []
-        for i, ds in enumerate(d_power):
-            if nodes[i].type_node != "slack":
-                delta.append(-ds.real)
-                delta.append(-ds.imag)
-        adjustments = numpy.linalg.solve(jacobian, delta)
-
-        return adjustments
+        idx_angle = NewtonRaphsonMethod._angle_indices(nodes)
+        idx_mag = NewtonRaphsonMethod._magnitude_indices(nodes)
+        rhs = numpy.array([-d_power[i].real for i in idx_angle] + [-d_power[i].imag for i in idx_mag])
+        try:
+            return numpy.linalg.solve(jacobian, rhs)
+        except numpy.linalg.LinAlgError as e:
+            raise ArithmeticError("Якобиан вырожден: проверьте исходные данные сети.") from e
 
     @staticmethod
     def _adjust_nodes(nodes: list[Node], adjustments: numpy.ndarray) -> list[Node]:
-        """Скорректировать узлы по углу и модулю напряжения
+        """
+        Скорректировать узлы; порядок поправок совпадает с _get_adjustments
 
         Args:
             nodes (list[Node]): список узлов электрической сети
@@ -340,27 +385,18 @@ class NewtonRaphsonMethod(ABC):
         Returns:
             list[Node]: список скорректированных узлов
         """
-        # корректировка по углу
-        j = 0
-        for node in nodes:
-            if node.type_node == "slack":
-                continue
-            elif node.type_node == "pq" or node.type_node_current == "pu":
-                node.u_angle += adjustments[j]
-                j += 1
-        # корректировка по модулю напряжения
-        for node in nodes:
-            if node.type_node == "slack":
-                continue
-            elif node.type_node == "pq":
-                node.u_magnitude += adjustments[j]
-                j += 1
-
+        idx_angle = NewtonRaphsonMethod._angle_indices(nodes)
+        idx_mag = NewtonRaphsonMethod._magnitude_indices(nodes)
+        for k, i in enumerate(idx_angle):
+            nodes[i].u_angle = (nodes[i].u_angle + adjustments[k]) % (2 * math.pi)  # держим диапазон [0, 2π)
+        offset = len(idx_angle)
+        for k, i in enumerate(idx_mag):
+            nodes[i].u_magnitude += adjustments[offset + k]
         return nodes
 
     @staticmethod
     def check_q_limits(nodes: list[Node], conductivity_matrix: numpy.ndarray) -> list[Node]:
-        """Корректировать состояние PU узла
+        """Контроль лимитов Q PU-узлов; возврат в PU по критерию напряжения с восстановлением уставки
 
         Args:
             nodes (list[Node]): список узлов электрической сети
@@ -369,31 +405,26 @@ class NewtonRaphsonMethod(ABC):
         Returns:
             list[Node]: список узлов с корректированным состоянием
         """
-        for i in range(len(nodes)):
-            if nodes[i].type_node == "pu":
-                s_net = complex(0, 0)
-                s_load = nodes[i].power_load
-                for j in range(len(nodes)):
-                    s_net += conductivity_matrix[i, j].conjugate() * nodes[j].u.conjugate()
-                s_net *= nodes[i].u
-                q_gen = (s_load + s_net).imag
-
-                q_min = nodes[i].q_min
-                q_max = nodes[i].q_max
-
-                if q_min is None or q_max is None or nodes[i].q_gen is None:
-                    raise ValueError("Значения q_min, q_gen и q_max должны быть заданы для PU узла.")
-
-                if q_min > q_gen:
-                    nodes[i].q_gen = nodes[i].q_min
-                    nodes[i].type_node_current = "pq"
-                elif q_max < q_gen:
-                    nodes[i].q_gen = nodes[i].q_max
-                    nodes[i].type_node_current = "pq"
+        u = numpy.array([node.u for node in nodes])
+        for i, node in enumerate(nodes):
+            if node.type_node != "pu":
+                continue
+            if node.type_node_current == "pu":
+                s_net = node.u * numpy.conj(conductivity_matrix[i, :] @ u)
+                q_req = float((node.power_load + s_net).imag)
+                if q_req < node.q_min:
+                    node.q_gen, node.type_node_current = node.q_min, "pq"
+                elif q_req > node.q_max:
+                    node.q_gen, node.type_node_current = node.q_max, "pq"
                 else:
-                    nodes[i].q_gen = q_gen
-                    nodes[i].type_node_current = "pu"
-
+                    node.q_gen = q_req
+            else:
+                # возврат, только если уставка напряжения «разгружает» лимит
+                if (node.q_gen >= node.q_max and node.u_magnitude >= node.u_setpoint) or (
+                    node.q_gen <= node.q_min and node.u_magnitude <= node.u_setpoint
+                ):
+                    node.u_magnitude = node.u_setpoint
+                    node.type_node_current = "pu"
         return nodes
 
     @staticmethod
@@ -411,14 +442,31 @@ class NewtonRaphsonMethod(ABC):
             tuple[list[Node], list[Any], Parameters]: скорректированные узлы, ветви и параметры расчета
         """
         conductivity_matrix = get_conductivity_matrix(nodes, branches)
+        initial_norm: float | None = None
+        norm = math.inf  # на случай пустого цикла; в else-ветке уйдет в сообщение ConvergenceError
         for iteration in range(parameters.max_iterations):
+            nodes = NewtonRaphsonMethod.check_q_limits(nodes, conductivity_matrix)
             d_power = NewtonRaphsonMethod._get_power_imbalance(nodes, conductivity_matrix)
-            if NewtonRaphsonMethod._unbalance_condition(nodes, parameters, d_power):
-                print(f"Точность достигнута! Расчет окончен на итерации №{iteration}!")
+            norm = NewtonRaphsonMethod._mismatch_norm(nodes, d_power)
+            if norm <= parameters.accuracy:
+                logger.info("Точность достигнута на итерации №%d (|ΔS|max=%.3g)", iteration, norm)
                 break
+            if initial_norm is None:
+                initial_norm = norm
+            if not math.isfinite(norm) or norm > 1e6 * initial_norm:
+                raise ConvergenceError(f"Расходимость на итерации №{iteration}: |ΔS|max={norm:.3g}")
             jacobian = NewtonRaphsonMethod._get_jacobian_matrix(nodes, conductivity_matrix)
             adjustments = NewtonRaphsonMethod._get_adjustments(nodes, d_power, jacobian)
-            nodes = NewtonRaphsonMethod._adjust_nodes(nodes, adjustments)
-            nodes = NewtonRaphsonMethod.check_q_limits(nodes, conductivity_matrix)
-
+            nodes = NewtonRaphsonMethod._adjust_nodes(nodes, parameters.damping * adjustments)
+            for node in nodes:
+                if not math.isfinite(node.u_magnitude) or node.u_magnitude <= 0:
+                    raise ConvergenceError(
+                        f"Недопустимое напряжение узла '{node.node_name}': {node.u_magnitude:.3g} кВ"
+                    )
+        else:
+            raise ConvergenceError(f"""Точность {parameters.accuracy} не достигнута
+                за {parameters.max_iterations} итераций (|ΔS|max={norm:.3g})""")
+        for node in nodes:
+            if node.type_node != "slack" and node.u_magnitude < 0.7 * node.u_setpoint:
+                logger.warning("Подозрительно низкое напряжение узла '%s': %.3g кВ", node.node_name, node.u_magnitude)
         return nodes, branches, parameters

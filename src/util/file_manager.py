@@ -231,8 +231,8 @@ def get_lines_or_transformers2(branches_data: list[dict[str, Any]], nodes: list[
             raise ValueError(f"""Узел '{node_2}' (ветвь {branch_payload.get('branch_name')}) не найден.
                 Доступные: {list(nodes_by_name)}""")
 
-        branch_payload["node_1"] = nodes_by_name["node_1"]
-        branch_payload["node_2"] = nodes_by_name["node_2"]
+        branch_payload["node_1"] = nodes_by_name[node_1]
+        branch_payload["node_2"] = nodes_by_name[node_2]
         if type_branch == "line":
             branches.append(Line.model_validate(branch_payload))
         elif type_branch == "t2":
@@ -280,9 +280,9 @@ def get_transformers3(branches_data: list[dict[str, Any]], nodes: list[Node]) ->
             raise ValueError(f"""Узел '{node_3}' (ветвь {branch_payload.get('branch_name')}) не найден.
                 Доступные: {list(nodes_by_name)}""")
 
-        branch_payload["node_1"] = nodes_by_name["node_1"]
-        branch_payload["node_2"] = nodes_by_name["node_2"]
-        branch_payload["node_3"] = nodes_by_name["node_3"]
+        branch_payload["node_1"] = nodes_by_name[node_1]
+        branch_payload["node_2"] = nodes_by_name[node_2]
+        branch_payload["node_3"] = nodes_by_name[node_3]
         branches.append(Transformer3.model_validate(branch_payload))
 
     return branches
