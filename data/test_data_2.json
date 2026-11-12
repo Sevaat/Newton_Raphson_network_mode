@@ -1,0 +1,99 @@
+{
+  "CALCULATION PARAMETERS": {
+    "accuracy": 0.001,
+    "max_iterations": 100,
+    "damping": 1
+  },
+  "LOADS": [
+    {
+      "load_name": "load",
+      "p_0": 46.1880,
+      "q_0": 23.0940,
+      "z_p": 0,
+      "i_p": 0,
+      "p_p": 1,
+      "z_q": 0,
+      "i_q": 0,
+      "p_q": 1,
+      "u_0": 110
+    }
+  ],
+  "NODES": [
+    {
+      "node_name": "Б",
+      "type_node": "slack",
+      "type_node_current": "slack",
+      "u_base": 110,
+      "g_shunt": 0,
+      "b_shunt": 0,
+      "u_magnitude": 115,
+      "u_angle": 0,
+      "p_gen": 0,
+      "q_gen": 0,
+      "q_min": 0,
+      "q_max": 0,
+      "loads": []
+    },
+    {
+      "node_name": "ИОМ",
+      "type_node": "pq",
+      "type_node_current": "pq",
+      "u_base": 110,
+      "g_shunt": 0,
+      "b_shunt": 0,
+      "u_magnitude": 110,
+      "u_angle": 0,
+      "p_gen": 28.8675,
+      "q_gen": 17.3205,
+      "q_min": 0,
+      "q_max": 0,
+      "loads": []
+    },
+    {
+      "node_name": "НАГР",
+      "type_node": "pq",
+      "type_node_current": "pq",
+      "u_base": 110,
+      "g_shunt": 0,
+      "b_shunt": 0,
+      "u_magnitude": 110,
+      "u_angle": 0,
+      "p_gen": 0,
+      "q_gen": 0,
+      "q_min": 0,
+      "q_max": 0,
+      "loads": ["load"]
+    }
+  ],
+  "BRANCHES": {
+    "LINES": [
+      {
+        "branch_name": "line12",
+      "node_1": "Б",
+      "node_2": "ИОМ",
+      "r_1": 10,
+      "x_1": 20,
+      "g_shunt": 0,
+      "b_shunt": 0
+    },
+    {
+      "branch_name": "line13",
+    "node_1": "Б",
+    "node_2": "НАГР",
+    "r_1": 15,
+    "x_1": 30,
+    "g_shunt": 0,
+    "b_shunt": 0
+  },
+  {
+    "branch_name": "line23",
+  "node_1": "ИОМ",
+  "node_2": "НАГР",
+  "r_1": 10,
+  "x_1": 25,
+  "g_shunt": 0,
+  "b_shunt": 0
+}
+    ]
+  }
+}
