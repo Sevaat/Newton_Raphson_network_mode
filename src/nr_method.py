@@ -88,8 +88,7 @@ class NewtonRaphsonMethod(ABC):
         Returns:
             numpy.ndarray: блок H = ∂P/∂δ матрицы Якоби в полярных координатах
         """
-        # индексы узлов, для которых δ является неизвестной (все, кроме Slack)
-        unknown_indices = [i for i, node in enumerate(nodes) if node.type_node != "slack"]
+        unknown_indices = NewtonRaphsonMethod._angle_indices(nodes)
 
         u_magnitude = numpy.array([node.u_magnitude for node in nodes])
         u_angle = numpy.array([node.u_angle for node in nodes])
@@ -184,11 +183,8 @@ class NewtonRaphsonMethod(ABC):
         Returns:
             numpy.ndarray: блок N = ∂P/∂V матрицы Якоби в полярных координатах
         """
-        # индексы узлов, для которых V является неизвестной (все, кроме SLACK и PU)
-        unknown_indices_1 = [i for i, node in enumerate(nodes) if node.type_node != "slack"]
-        unknown_indices_2 = [
-            i for i, node in enumerate(nodes) if node.type_node != "slack" and node.type_node_current != "pu"
-        ]
+        unknown_indices_1 = NewtonRaphsonMethod._angle_indices(nodes)
+        unknown_indices_2 = NewtonRaphsonMethod._magnitude_indices(nodes)
 
         u_magnitude = numpy.array([node.u_magnitude for node in nodes])
         u_angle = numpy.array([node.u_angle for node in nodes])
@@ -229,11 +225,8 @@ class NewtonRaphsonMethod(ABC):
         Returns:
             numpy.ndarray: блок M = ∂Q/∂δ матрицы Якоби в полярных координатах
         """
-        # индексы узлов, для которых δ является неизвестной (все, кроме SLACK)
-        unknown_indices_1 = [
-            i for i, node in enumerate(nodes) if node.type_node != "slack" and node.type_node_current != "pu"
-        ]
-        unknown_indices_2 = [i for i, node in enumerate(nodes) if node.type_node != "slack"]
+        unknown_indices_1 = NewtonRaphsonMethod._magnitude_indices(nodes)
+        unknown_indices_2 = NewtonRaphsonMethod._angle_indices(nodes)
 
         u_magnitude = numpy.array([node.u_magnitude for node in nodes])
         u_angle = numpy.array([node.u_angle for node in nodes])
@@ -273,10 +266,7 @@ class NewtonRaphsonMethod(ABC):
         Returns:
             numpy.ndarray: блок L = ∂Q/∂V матрицы Якоби в полярных координатах
         """
-        # индексы узлов, для которых V является неизвестной (все, кроме SLACK и PU)
-        unknown_indices = [
-            i for i, node in enumerate(nodes) if node.type_node != "slack" and node.type_node_current != "pu"
-        ]
+        unknown_indices = NewtonRaphsonMethod._magnitude_indices(nodes)
 
         u_magnitude = numpy.array([node.u_magnitude for node in nodes])
         u_angle = numpy.array([node.u_angle for node in nodes])
@@ -371,7 +361,7 @@ class NewtonRaphsonMethod(ABC):
         try:
             return numpy.linalg.solve(jacobian, rhs)
         except numpy.linalg.LinAlgError as e:
-            raise ArithmeticError("Якобиан вырожден: проверьте исходные данные сети.") from e
+            raise ConvergenceError("Якобиан вырожден: проверьте исходные данные сети.") from e
 
     @staticmethod
     def _adjust_nodes(nodes: list[Node], adjustments: numpy.ndarray) -> list[Node]:
@@ -419,12 +409,12 @@ class NewtonRaphsonMethod(ABC):
                 else:
                     node.q_gen = q_req
             else:
-                # возврат, только если уставка напряжения «разгружает» лимит
                 if (node.q_gen >= node.q_max and node.u_magnitude >= node.u_setpoint) or (
                     node.q_gen <= node.q_min and node.u_magnitude <= node.u_setpoint
                 ):
                     node.u_magnitude = node.u_setpoint
                     node.type_node_current = "pu"
+                    u[i] = node.u
         return nodes
 
     @staticmethod
