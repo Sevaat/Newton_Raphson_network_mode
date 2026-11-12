@@ -1,5 +1,5 @@
 import math
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -32,15 +32,15 @@ class Node(BaseModel):
     node_name: str
     type_node: Literal["pq", "pu", "slack"]
     type_node_current: Literal["pq", "pu", "slack"]
-    u_base: Literal[6, 10, 20, 35, 110, 220]
+    u_base: int | float = Field(gt=0, le=1000)
     g_shunt: int | float = Field(ge=0, le=1e10)
     b_shunt: int | float = Field(ge=-1e10, le=1e10)
     u_magnitude: int | float = Field(gt=0, le=1e10)
     u_angle: int | float = Field(ge=0, lt=2 * math.pi)
     p_gen: int | float = Field(ge=0, le=1e10)
-    q_gen: int | float = Field(ge=0, le=1e10)
-    q_min: int | float = Field(ge=0, le=1e10)
-    q_max: int | float = Field(ge=0, le=1e10)
+    q_gen: int | float = Field(ge=-1e10, le=1e10)
+    q_min: int | float = Field(ge=-1e10, le=1e10)
+    q_max: int | float = Field(ge=-1e10, le=1e10)
     loads: list[Load] = Field(default_factory=list)
     u_setpoint: int | float = Field(gt=0, le=1e10)
 
@@ -75,3 +75,10 @@ class Node(BaseModel):
         if isinstance(data, dict) and data.get("u_setpoint") is None:
             return {**data, "u_setpoint": data.get("u_magnitude")}
         return data
+
+    @model_validator(mode="after")
+    def _check_q_limits_order(self) -> Self:
+        """Проверка согласованности пределов реактивной мощности"""
+        if self.q_min > self.q_max:
+            raise ValueError(f"Узел '{self.node_name}': q_min ({self.q_min}) > q_max ({self.q_max})")
+        return self
