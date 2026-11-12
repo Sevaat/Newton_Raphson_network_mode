@@ -1,0 +1,102 @@
+{
+  "CALCULATION PARAMETERS": {
+    "accuracy": 0.001,
+    "max_iterations": 100,
+    "damping": 1
+  },
+  "LOADS": [
+    {
+      "load_name": "load1",
+      "p_0": 22,
+      "q_0": 15,
+      "z_p": 0,
+      "i_p": 0,
+      "p_p": 1,
+      "z_q": 0,
+      "i_q": 0,
+      "p_q": 1,
+      "u_0": 110
+    },
+    {
+      "load_name": "load2",
+      "p_0": 20,
+      "q_0": 20,
+      "z_p": 0,
+      "i_p": 0,
+      "p_p": 1,
+      "z_q": 0,
+      "i_q": 0,
+      "p_q": 1,
+      "u_0": 110
+    }
+  ],
+  "NODES": [
+    {
+      "node_name": "Б",
+      "type_node": "slack",
+      "type_node_current": "slack",
+      "u_base": 110,
+      "g_shunt": 0,
+      "b_shunt": 0,
+      "u_magnitude": 115,
+      "u_angle": 0,
+      "p_gen": 0,
+      "q_gen": 0,
+      "q_min": 0,
+      "q_max": 0,
+      "loads": []
+    },
+    {
+      "node_name": "Н1",
+      "type_node": "pq",
+      "type_node_current": "pq",
+      "u_base": 110,
+      "g_shunt": 0,
+      "b_shunt": 0,
+      "u_magnitude": 110,
+      "u_angle": 0,
+      "p_gen": 0,
+      "q_gen": 0,
+      "q_min": 0,
+      "q_max": 0,
+      "loads": ["load1"]
+    },
+    {
+      "node_name": "Н2",
+      "type_node": "pq",
+      "type_node_current": "pq",
+      "u_base": 110,
+      "g_shunt": 0,
+      "b_shunt": 0,
+      "u_magnitude": 110,
+      "u_angle": 0,
+      "p_gen": 0,
+      "q_gen": 0,
+      "q_min": 0,
+      "q_max": 0,
+      "loads": ["load2"]
+    }
+  ],
+  "BRANCHES": {
+    "LINES": [
+      {
+        "branch_name": "line12",
+      "node_1": "Б",
+      "node_2": "Н1",
+      "r_1": 25,
+      "x_1": 43,
+      "g_shunt": 0,
+      "b_shunt": 270e-6
+    },
+    {
+      "branch_name": "line13",
+    "node_1": "Б",
+    "node_2": "Н2",
+    "r_1": 22,
+    "x_1": 24,
+    "g_shunt": 0,
+    "b_shunt": 560e-6
+  }
+    ]
+  }
+}
