@@ -1,11 +1,19 @@
 {% extends "base.html" %}
+{% block extra_head %}
+  {% if run.in_progress %}<meta http-equiv="refresh" content="3">{% endif %}
+{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-2">
   <h3 class="mb-0">Результаты: {{ project.name }}</h3>
   <a href="{{ project.get_absolute_url }}" class="btn btn-outline-secondary">К проекту</a>
 </div>
 <p class="text-muted">{{ run.created_at|date:"d.m.Y H:i:s" }}</p>
-{% if run.success %}
+{% if run.in_progress %}
+  <div class="alert alert-warning d-flex align-items-center gap-2">
+    <div class="spinner-border spinner-border-sm"></div>
+    {{ run.get_status_display }}… страница обновляется автоматически
+  </div>
+{% elif run.success %}
 <div class="alert alert-success">{{ run.message }}</div>
 
 <h5>Напряжения в узлах</h5>

@@ -98,7 +98,12 @@
       {% for r in runs %}
       <tr>
         <td>{{ r.created_at|date:"d.m.Y H:i:s" }}</td>
-        <td>{% if r.success %}<span class="badge bg-success">OK</span>{% else %}<span class="badge bg-danger">Ошибка</span>{% endif %}</td>
+        <td>
+          {% if r.status == "success" %}<span class="badge bg-success">Завершен</span>
+          {% elif r.status == "failed" %}<span class="badge bg-danger">Ошибка</span>
+          {% elif r.status == "running" %}<span class="badge bg-warning text-dark">Выполняется</span>
+          {% else %}<span class="badge bg-secondary">В очереди</span>{% endif %}
+        </td>
         <td class="small">{{ r.message|truncatechars:120 }}</td>
         <td><a href="{% url 'run_detail' project.pk r.pk %}" class="btn btn-sm btn-outline-primary">Открыть</a></td>
       </tr>
