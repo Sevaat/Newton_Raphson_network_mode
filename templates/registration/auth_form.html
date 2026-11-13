@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">{{ title }}</h3>
+<form method="post" style="max-width: 420px">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit" class="btn btn-primary">{{ title }}</button>
+  {% if is_login %}<a class="btn btn-link" href="{% url 'signup' %}">Регистрация</a>
+  {% else %}<a class="btn btn-link" href="{% url 'login' %}">Уже есть аккаунт? Войти</a>{% endif %}
+</form>
+{% endblock %}

@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Удалить проект «{{ object.name }}»?</h3>
+<form method="post">{% csrf_token %}
+  <button type="submit" class="btn btn-danger">Удалить</button>
+  <a href="{{ object.get_absolute_url }}" class="btn btn-outline-secondary">Отмена</a>
+</form>
+{% endblock %}

@@ -37,8 +37,7 @@ class TestBasic:
 
     def test_parallel_lines_add_up(self, two_bus):
         nodes, branches = two_bus
-        line2 = Line(branch_name="L2", node_1=nodes[0], node_2=nodes[1],
-                     r_1=10.0, x_1=40.0, g_shunt=0.0, b_shunt=0.0)
+        line2 = Line(branch_name="L2", node_1=nodes[0], node_2=nodes[1], r_1=10.0, x_1=40.0, g_shunt=0.0, b_shunt=0.0)
         y_single = get_conductivity_matrix(nodes, branches)
         y_double = get_conductivity_matrix(nodes, branches + [line2])
         assert y_double == pytest.approx(2 * y_single)
@@ -59,9 +58,17 @@ class TestTransformer2:
     @pytest.fixture
     def t2_case(self, make_node):
         nodes = [make_node("1", "slack"), make_node("2")]
-        t2 = Transformer2(branch_name="T2", node_1=nodes[0], node_2=nodes[1],
-                          r_1=2.0, x_1=30.0, g_shunt=1e-6, b_shunt=-2e-5,
-                          u_1=110.0, u_2=35.0)
+        t2 = Transformer2(
+            branch_name="T2",
+            node_1=nodes[0],
+            node_2=nodes[1],
+            r_1=2.0,
+            x_1=30.0,
+            g_shunt=1e-6,
+            b_shunt=-2e-5,
+            u_1=110.0,
+            u_2=35.0,
+        )
         return nodes, t2
 
     def test_entries(self, t2_case):
@@ -85,15 +92,32 @@ class TestTransformer3:
     def test_matches_kron_reduction(self, make_node):
         """Независимая проверка: исключение нейтрали звезды (редукция Крона) из 4x4-матрицы."""
         nodes = [make_node("1", "slack"), make_node("2"), make_node("3")]
-        t3 = Transformer3(branch_name="T3", node_1=nodes[0], node_2=nodes[1], node_3=nodes[2],
-                          r_1=1.0, x_1=20.0, r_2=0.5, x_2=12.0, r_3=0.3, x_3=6.0,
-                          g_shunt=0.0, b_shunt=0.0, u_1=110.0, u_2=35.0, u_3=10.0)
+        t3 = Transformer3(
+            branch_name="T3",
+            node_1=nodes[0],
+            node_2=nodes[1],
+            node_3=nodes[2],
+            r_1=1.0,
+            x_1=20.0,
+            r_2=0.5,
+            x_2=12.0,
+            r_3=0.3,
+            x_3=6.0,
+            g_shunt=0.0,
+            b_shunt=0.0,
+            u_1=110.0,
+            u_2=35.0,
+            u_3=10.0,
+        )
         yh, ym, yl = 1 / t3.z_1, 1 / t3.z_2, 1 / t3.z_3
         k1, k2 = t3.k_12, t3.k_13
         y4 = np.zeros((4, 4), dtype=complex)  # узлы 1, 2, 3 + нейтраль n
-        y4[0, 0] = yh; y4[0, 3] = y4[3, 0] = -yh
-        y4[1, 1] = k1**2 * ym; y4[1, 3] = y4[3, 1] = -k1 * ym
-        y4[2, 2] = k2**2 * yl; y4[2, 3] = y4[3, 2] = -k2 * yl
+        y4[0, 0] = yh
+        y4[0, 3] = y4[3, 0] = -yh
+        y4[1, 1] = k1**2 * ym
+        y4[1, 3] = y4[3, 1] = -k1 * ym
+        y4[2, 2] = k2**2 * yl
+        y4[2, 3] = y4[3, 2] = -k2 * yl
         y4[3, 3] = yh + ym + yl
         y_kron = y4[:3, :3] - np.outer(y4[:3, 3], y4[3, :3]) / y4[3, 3]
         assert get_conductivity_matrix(nodes, [t3]) == pytest.approx(y_kron)

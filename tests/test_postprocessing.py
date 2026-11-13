@@ -69,8 +69,17 @@ class TestTransformer2Flows:
     @pytest.fixture
     def t2_case(self, make_node):
         nodes = [make_node("1", "slack"), make_node("2", u_magnitude=36.0, u_angle=0.03)]
-        t2 = Transformer2(branch_name="T2", node_1=nodes[0], node_2=nodes[1],
-                          r_1=2.0, x_1=30.0, g_shunt=0.0, b_shunt=0.0, u_1=110.0, u_2=35.0)
+        t2 = Transformer2(
+            branch_name="T2",
+            node_1=nodes[0],
+            node_2=nodes[1],
+            r_1=2.0,
+            x_1=30.0,
+            g_shunt=0.0,
+            b_shunt=0.0,
+            u_1=110.0,
+            u_2=35.0,
+        )
         return nodes, t2
 
     def test_losses_match_referred_voltage_drop(self, t2_case):
@@ -87,18 +96,35 @@ class TestTransformer2Flows:
         fl_line = calc_branch_flows([Line(branch_name="L", **common)])[0]
         fl_t2 = calc_branch_flows([Transformer2(branch_name="T2", u_1=110, u_2=110, **common)])[0]
         assert (fl_t2.p_1, fl_t2.q_1, fl_t2.p_2, fl_t2.q_2) == pytest.approx(
-            (fl_line.p_1, fl_line.q_1, fl_line.p_2, fl_line.q_2))
+            (fl_line.p_1, fl_line.q_1, fl_line.p_2, fl_line.q_2)
+        )
 
 
 class TestTransformer3Flows:
     @pytest.fixture
     def t3_case(self, make_node):
-        nodes = [make_node("1", "slack"),
-                 make_node("2", u_magnitude=36.0, u_angle=0.03),
-                 make_node("3", u_magnitude=10.5, u_angle=0.06)]
-        t3 = Transformer3(branch_name="T3", node_1=nodes[0], node_2=nodes[1], node_3=nodes[2],
-                          r_1=1.0, x_1=20.0, r_2=0.5, x_2=12.0, r_3=0.3, x_3=6.0,
-                          g_shunt=0.0, b_shunt=0.0, u_1=110.0, u_2=35.0, u_3=10.0)
+        nodes = [
+            make_node("1", "slack"),
+            make_node("2", u_magnitude=36.0, u_angle=0.03),
+            make_node("3", u_magnitude=10.5, u_angle=0.06),
+        ]
+        t3 = Transformer3(
+            branch_name="T3",
+            node_1=nodes[0],
+            node_2=nodes[1],
+            node_3=nodes[2],
+            r_1=1.0,
+            x_1=20.0,
+            r_2=0.5,
+            x_2=12.0,
+            r_3=0.3,
+            x_3=6.0,
+            g_shunt=0.0,
+            b_shunt=0.0,
+            u_1=110.0,
+            u_2=35.0,
+            u_3=10.0,
+        )
         return nodes, t3
 
     def test_kcl_at_neutral_and_winding_losses(self, t3_case):

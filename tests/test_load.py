@@ -23,8 +23,7 @@ class TestLoadPower:
         assert ld.power_load(55.0) == pytest.approx(complex(10, 5))
 
     def test_mixed_zip_at_overvoltage(self, make_load):
-        ld = make_load(p_0=100.0, q_0=50.0, z_p=0.3, i_p=0.3, p_p=0.4,
-                       z_q=0.2, i_q=0.5, p_q=0.3)
+        ld = make_load(p_0=100.0, q_0=50.0, z_p=0.3, i_p=0.3, p_p=0.4, z_q=0.2, i_q=0.5, p_q=0.3)
         k = 1.1
         p = 100.0 * (0.3 * k**2 + 0.3 * k + 0.4)
         q = 50.0 * (0.2 * k**2 + 0.5 * k + 0.3)

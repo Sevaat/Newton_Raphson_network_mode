@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>Проекты</h3>
+  <div>
+    <a href="{% url 'project_create' %}" class="btn btn-primary">+ Новый проект</a>
+    <a href="{% url 'project_import' %}" class="btn btn-outline-primary">Импорт JSON</a>
+  </div>
+</div>
+<table class="table table-hover align-middle">
+  <thead><tr><th>Название</th><th>Узлы</th><th>Ветви</th><th>Нагрузки</th><th>Обновлен</th><th></th></tr></thead>
+  <tbody>
+  {% for p in projects %}
+    <tr>
+      <td><a href="{{ p.get_absolute_url }}">{{ p.name }}</a></td>
+      <td>{{ p.nodes.count }}</td><td>{{ p.branches.count }}</td><td>{{ p.loads.count }}</td>
+      <td>{{ p.updated_at|date:"d.m.Y H:i" }}</td>
+      <td class="text-end">
+        <form method="post" action="{% url 'project_delete' p.pk %}" class="d-inline"
+              onsubmit="return confirm('Удалить проект?')">
+          {% csrf_token %}<button class="btn btn-sm btn-outline-danger">Удалить</button>
+        </form>
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6" class="text-muted">Проектов пока нет — создайте новый или импортируйте JSON.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

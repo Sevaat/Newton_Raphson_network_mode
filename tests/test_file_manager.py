@@ -10,28 +10,52 @@ from src.model.node import Node
 from src.model.parameters import Parameters
 from src.util.file_manager import FileManager, get_lines_or_transformers2, get_transformers3
 
-LOAD_DICT = dict(load_name="L1", p_0=20.0, q_0=10.0, z_p=0.0, i_p=0.0, p_p=1.0,
-                 z_q=0.0, i_q=0.0, p_q=1.0, u_0=110.0)
-NODE_DICT = dict(node_name="1", type_node="slack", type_node_current="slack", u_base=110,
-                 g_shunt=0.0, b_shunt=0.0, u_magnitude=110.0, u_angle=0.0,
-                 p_gen=0.0, q_gen=0.0, q_min=0.0, q_max=0.0, loads=[])
+LOAD_DICT = dict(load_name="L1", p_0=20.0, q_0=10.0, z_p=0.0, i_p=0.0, p_p=1.0, z_q=0.0, i_q=0.0, p_q=1.0, u_0=110.0)
+NODE_DICT = dict(
+    node_name="1",
+    type_node="slack",
+    type_node_current="slack",
+    u_base=110,
+    g_shunt=0.0,
+    b_shunt=0.0,
+    u_magnitude=110.0,
+    u_angle=0.0,
+    p_gen=0.0,
+    q_gen=0.0,
+    q_min=0.0,
+    q_max=0.0,
+    loads=[],
+)
 NODE2_DICT = dict(NODE_DICT, node_name="2", type_node="pq", type_node_current="pq", loads=["L1"])
 LINE_DICT = dict(branch_name="L-1-2", node_1="1", node_2="2", r_1=10.0, x_1=40.0, g_shunt=0.0, b_shunt=0.0)
 BRANCHES_DICT = {"LINES": [LINE_DICT], "TRANSFORMERS2": [], "TRANSFORMERS3": []}
 PARAMS_DICT = {"accuracy": 1e-6, "max_iterations": 100}
-FULL_DATA = {"LOADS": [LOAD_DICT], "NODES": [NODE_DICT, NODE2_DICT],
-             "BRANCHES": BRANCHES_DICT, "CALCULATION PARAMETERS": PARAMS_DICT}
+FULL_DATA = {
+    "LOADS": [LOAD_DICT],
+    "NODES": [NODE_DICT, NODE2_DICT],
+    "BRANCHES": BRANCHES_DICT,
+    "CALCULATION PARAMETERS": PARAMS_DICT,
+}
 
 
 @pytest.fixture
 def data_dir(tmp_path, monkeypatch):
     """Подменяет корень так, чтобы FileManager искал JSON в tmp_path/data."""
+
     class FakePath:
-        def __init__(self, *args): pass
-        def resolve(self): return self
+        def __init__(self, *args):
+            pass
+
+        def resolve(self):
+            return self
+
         @property
-        def parent(self): return self
-        def __truediv__(self, other): return tmp_path / other
+        def parent(self):
+            return self
+
+        def __truediv__(self, other):
+            return tmp_path / other
+
     monkeypatch.setattr(fm, "Path", FakePath)
     return tmp_path
 
@@ -192,6 +216,7 @@ def test_load_full_scenario(data_dir):
     assert branches[0].node_1 is nodes[0]
     assert parameters.accuracy == 1e-6
 
+
 class TestSaveData:
     def test_save_and_read_back(self, data_dir):
         FileManager._save_data({"a": 1}, "out.json")
@@ -224,6 +249,7 @@ class TestSave:
 
     def test_save_with_results(self, data_dir, two_bus, params):
         from src.postprocessing import calc_results
+
         nodes, branches = two_bus
         slacks, flows = calc_results(nodes, branches)
         FileManager.save([nodes[1].loads[0]], nodes, branches, params, slacks, flows)

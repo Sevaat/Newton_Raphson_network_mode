@@ -47,11 +47,17 @@ class TestNodeValidation:
         with pytest.raises(ValidationError):
             make_node(type_node="pv")
 
-    @pytest.mark.parametrize("field,value", [
-        ("u_magnitude", 0.0), ("u_magnitude", -1.0),
-        ("u_angle", -0.1), ("u_angle", 2 * math.pi),
-        ("p_gen", -1.0), ("g_shunt", -1.0),
-    ])
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("u_magnitude", 0.0),
+            ("u_magnitude", -1.0),
+            ("u_angle", -0.1),
+            ("u_angle", 2 * math.pi),
+            ("p_gen", -1.0),
+            ("g_shunt", -1.0),
+        ],
+    )
     def test_field_constraints(self, make_node, field, value):
         with pytest.raises(ValidationError):
             make_node(**{field: value})

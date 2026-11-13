@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h3 class="mb-0">Результаты: {{ project.name }}</h3>
+  <a href="{{ project.get_absolute_url }}" class="btn btn-outline-secondary">К проекту</a>
+</div>
+<p class="text-muted">{{ run.created_at|date:"d.m.Y H:i:s" }}</p>
+{% if run.success %}
+<div class="alert alert-success">{{ run.message }}</div>
+
+<h5>Напряжения в узлах</h5>
+<table class="table table-sm table-bordered">
+  <thead><tr><th>Узел</th><th>Тип (тек.)</th><th>U, кВ</th><th>U, о.е.</th><th>δ, град</th><th>Q ген, Мвар</th></tr></thead>
+  <tbody>
+  {% for n in run.results.nodes %}
+  <tr><td>{{ n.node_name }}</td><td>{{ n.type_node_current }}</td>
+      <td>{{ n.u_magnitude|floatformat:2 }}</td><td>{{ n.u_pu|floatformat:3 }}</td>
+      <td>{{ n.u_angle_deg|floatformat:3 }}</td><td>{{ n.q_gen|floatformat:2 }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h5>Мощности балансирующих узлов</h5>
+<table class="table table-sm table-bordered w-auto">
+  <thead><tr><th>Узел</th><th>P, МВт</th><th>Q, Мвар</th></tr></thead>
+  <tbody>
+  {% for s in run.results.slack_powers %}
+  <tr><td>{{ s.node_name }}</td><td>{{ s.p|floatformat:3 }}</td><td>{{ s.q|floatformat:3 }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h5>Потоки и потери в ветвях</h5>
+<table class="table table-sm table-bordered">
+  <thead><tr><th>Ветвь</th><th>P₁, МВт</th><th>Q₁, Мвар</th><th>P₂, МВт</th><th>Q₂, Мвар</th>
+    <th>P₃, МВт</th><th>Q₃, Мвар</th><th>ΔP, МВт</th><th>ΔQ, Мвар</th></tr></thead>
+  <tbody>
+  {% for f in run.results.branch_flows %}
+  <tr><td>{{ f.branch_name }}</td>
+      <td>{{ f.p_1|floatformat:3 }}</td><td>{{ f.q_1|floatformat:3 }}</td>
+      <td>{{ f.p_2|floatformat:3 }}</td><td>{{ f.q_2|floatformat:3 }}</td>
+      <td>{{ f.p_3|floatformat:3|default:"—" }}</td><td>{{ f.q_3|floatformat:3|default:"—" }}</td>
+      <td>{{ f.dp|floatformat:3 }}</td><td>{{ f.dq|floatformat:3 }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<div class="alert alert-info">
+  Суммарные потери: ΔP = {{ run.results.total_losses.dp|floatformat:3 }} МВт,
+  ΔQ = {{ run.results.total_losses.dq|floatformat:3 }} Мвар
+</div>
+{% else %}
+<div class="alert alert-danger">{{ run.message }}</div>
+{% endif %}
+{% endblock %}

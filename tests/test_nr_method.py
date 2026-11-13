@@ -14,7 +14,7 @@ from src.nr_method import NewtonRaphsonMethod as NR
 P, Q, R, X, U1 = 20.0, 10.0, 10.0, 40.0, 110.0
 A, B = P * R + Q * X, P * X - Q * R
 V2_SQ = (U1**2 - 2 * A + math.sqrt((U1**2 - 2 * A) ** 2 - 4 * (A**2 + B**2))) / 2
-U2_ANALYTIC = math.sqrt(V2_SQ)                          # ~104.026 кВ (рабочий корень)
+U2_ANALYTIC = math.sqrt(V2_SQ)  # ~104.026 кВ (рабочий корень)
 DELTA2_ANALYTIC = math.atan2(-B / U1, (V2_SQ + A) / U1)  # ~ -0.06121 рад
 
 
@@ -73,8 +73,7 @@ class TestUnbalanceCondition:
 class TestLoadDerivative:
     @pytest.fixture
     def zip_node(self, make_node, make_load):
-        ld = make_load(p_0=100.0, q_0=50.0, z_p=0.3, i_p=0.3, p_p=0.4,
-                       z_q=0.2, i_q=0.5, p_q=0.3)
+        ld = make_load(p_0=100.0, q_0=50.0, z_p=0.3, i_p=0.3, p_p=0.4, z_q=0.2, i_q=0.5, p_q=0.3)
         return make_node(loads=[ld])
 
     def test_p_derivative_value(self, zip_node):
@@ -88,13 +87,18 @@ class TestLoadDerivative:
     @pytest.mark.parametrize("p_q,part", [("P", "real"), ("Q", "imag")])
     def test_matches_numerical_derivative_of_load_model(self, zip_node, p_q, part):
         h, u0 = 1e-5, zip_node.u_magnitude
-        num = (getattr(zip_node.loads[0].power_load(u0 + h), part)
-                - getattr(zip_node.loads[0].power_load(u0 - h), part)) / (2 * h)
+        num = (
+            getattr(zip_node.loads[0].power_load(u0 + h), part) - getattr(zip_node.loads[0].power_load(u0 - h), part)
+        ) / (2 * h)
         assert NR._get_p_q_load_derivative(zip_node, p_q) == pytest.approx(num, rel=1e-6)
 
     def test_sums_over_loads(self, make_node, make_load):
-        node = make_node(loads=[make_load("a", p_0=100, z_p=0.5, i_p=0.5, p_p=0.0),
-                                make_load("b", p_0=100, z_p=0.5, i_p=0.5, p_p=0.0)])
+        node = make_node(
+            loads=[
+                make_load("a", p_0=100, z_p=0.5, i_p=0.5, p_p=0.0),
+                make_load("b", p_0=100, z_p=0.5, i_p=0.5, p_p=0.0),
+            ]
+        )
         assert NR._get_p_q_load_derivative(node, "P") == pytest.approx(300.0 / 110.0)
 
     def test_empty_loads_gives_zero(self, make_node):
@@ -131,8 +135,12 @@ class TestJacobian:
     def test_block_assembly(self, two_bus):
         nodes, branches = two_bus
         y = get_conductivity_matrix(nodes, branches)
-        expected = np.block([[NR._get_h_matrix(nodes, y), NR._get_n_matrix(nodes, y)],
-                             [NR._get_m_matrix(nodes, y), NR._get_l_matrix(nodes, y)]])
+        expected = np.block(
+            [
+                [NR._get_h_matrix(nodes, y), NR._get_n_matrix(nodes, y)],
+                [NR._get_m_matrix(nodes, y), NR._get_l_matrix(nodes, y)],
+            ]
+        )
         assert NR._get_jacobian_matrix(nodes, y) == pytest.approx(expected)
 
     def test_matches_numerical_jacobian(self, two_bus):
@@ -149,8 +157,10 @@ class TestJacobian:
         h = 1e-6
         for col, attr in enumerate(("u_angle", "u_magnitude")):
             old = getattr(nodes[1], attr)
-            setattr(nodes[1], attr, old + h); fp = w_vec()
-            setattr(nodes[1], attr, old - h); fm = w_vec()
+            setattr(nodes[1], attr, old + h)
+            fp = w_vec()
+            setattr(nodes[1], attr, old - h)
+            fm = w_vec()
             setattr(nodes[1], attr, old)
             j_num[:, col] = (fp - fm) / (2 * h)
         assert j_an == pytest.approx(j_num, rel=1e-4, abs=1e-4)
@@ -199,6 +209,7 @@ class TestCheckQLimits:
         def _make(q_load, q_min, q_max):
             ld = make_load(p_0=0.0, q_0=q_load)
             return make_node("G", "pu", loads=[ld], q_min=q_min, q_max=q_max, q_gen=20.0)
+
         return _make
 
     def test_within_limits_stays_pu(self, pu_node):

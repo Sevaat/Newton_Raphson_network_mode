@@ -1,0 +1,20 @@
+<head>
+  ...
+  {% block extra_head %}{% endblock %}
+</head>
+...
+<nav class="navbar navbar-dark bg-dark mb-4">
+  <div class="container">
+    <a class="navbar-brand" href="{% url 'project_list' %}">Newton–Raphson Web</a>
+    <div class="d-flex align-items-center gap-2">
+      {% if user.is_authenticated %}
+        <span class="navbar-text">{{ user.username }}</span>
+        <form method="post" action="{% url 'logout' %}" class="d-inline">
+          {% csrf_token %}<button class="btn btn-outline-light btn-sm">Выйти</button>
+        </form>
+      {% else %}
+        <a class="btn btn-outline-light btn-sm" href="{% url 'login' %}">Войти</a>
+      {% endif %}
+    </div>
+  </div>
+</nav>

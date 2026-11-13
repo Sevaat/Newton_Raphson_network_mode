@@ -24,5 +24,6 @@ def test_invalid_max_iterations(max_iterations):
 def test_boundary_values_are_allowed():
     assert Parameters(accuracy=1_000_000, max_iterations=1_000_000).accuracy == 1_000_000
 
+
 def test_damping_default():
     assert Parameters(accuracy=1e-6, max_iterations=10).damping == 1.0

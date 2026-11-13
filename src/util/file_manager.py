@@ -194,7 +194,7 @@ class FileManager(ABC):
         return Parameters.model_validate(parameters_data)
 
     @staticmethod
-    def load(filename: str) -> tuple[list[Load], list[Node], list[Any], Parameters]:
+    def load_from_file(filename: str) -> tuple[list[Load], list[Node], list[Any], Parameters]:
         """Загрузить данные из JSON
 
         Args:
@@ -237,7 +237,7 @@ class FileManager(ABC):
         logger.info("Результаты сохранены: %s", filepath)
 
     @staticmethod
-    def save(
+    def save_to_file(
         loads: list[Load],
         nodes: list[Node],
         branches: list[Any],
@@ -303,6 +303,33 @@ class FileManager(ABC):
                 "dq": sum(item.dq for item in flows),
             }
         FileManager._save_data(data, filename)
+
+    @staticmethod
+    def load_from_dict(data: dict[str, Any]) -> tuple[list[Load], list[Node], list[Any], Parameters]:
+        """
+        Загрузка данных из словаря
+
+        Args:
+            data (dict[str, Any]): словарь с данными
+
+        Returns:
+            tuple[list[Load], list[Node], list[Any], Parameters]: данные нагрузок, узлов, ветвей и параметров
+        """
+        loads = FileManager._load_loads(data)
+        nodes = FileManager._load_nodes(data, loads)
+        branches = FileManager._load_branches(data, nodes)
+        parameters = FileManager._load_parameter(data)
+        return loads, nodes, branches, parameters
+
+    @staticmethod
+    def load(filename: str):
+        """
+        Загрузка данных
+
+        Args:
+            filename (str): путь к файлу для загрузки
+        """
+        return FileManager.load_from_dict(FileManager._load_data(filename))
 
 
 def get_lines_or_transformers2(branches_data: list[dict[str, Any]], nodes: list[Node], type_branch: str) -> list[Any]:

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+  <h3 class="mb-0">{{ project.name }}</h3>
+  <div class="d-flex gap-2">
+    <form method="post" action="{% url 'project_run' project.pk %}">
+      {% csrf_token %}<button class="btn btn-success">Рассчитать</button>
+    </form>
+    <a class="btn btn-outline-secondary" href="{% url 'project_edit' project.pk %}">Параметры</a>
+    <a class="btn btn-outline-secondary" href="{% url 'project_export' project.pk %}">Экспорт JSON</a>
+  </div>
+</div>
+<p class="text-muted mb-1">{{ project.description }}</p>
+<p class="small">Точность: {{ project.accuracy }} МВА · Макс. итераций: {{ project.max_iterations }} · Демпфирование: {{ project.damping }}</p>
+
+<ul class="nav nav-tabs" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#nodes">Узлы ({{ nodes|length }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#branches">Ветви ({{ branches|length }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#loads">Нагрузки ({{ loads|length }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#runs">Результаты</button></li>
+</ul>
+<div class="tab-content pt-3">
+
+  <div class="tab-pane fade show active" id="nodes">
+    <a href="{% url 'item_create' project.pk 'node' %}" class="btn btn-sm btn-primary mb-2">+ Узел</a>
+    <table class="table table-sm table-bordered align-middle">
+      <thead><tr><th>Имя</th><th>Тип</th><th>U баз, кВ</th><th>U нач, кВ</th><th>δ, рад</th>
+        <th>P ген, МВт</th><th>Q ген, Мвар</th><th>Q min/max</th><th>Нагрузки</th><th></th></tr></thead>
+      <tbody>
+      {% for n in nodes %}
+      <tr>
+        <td>{{ n.node_name }}</td><td>{{ n.get_type_node_display }}</td>
+        <td>{{ n.u_base }}</td><td>{{ n.u_magnitude }}</td><td>{{ n.u_angle }}</td>
+        <td>{{ n.p_gen }}</td><td>{{ n.q_gen }}</td><td>{{ n.q_min }} / {{ n.q_max }}</td>
+        <td>{% for l in n.loads.all %}{{ l.load_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+        <td class="text-nowrap">
+          <a href="{% url 'item_edit' project.pk 'node' n.pk %}" class="btn btn-sm btn-outline-secondary">Изм.</a>
+          <form method="post" action="{% url 'item_delete' project.pk 'node' n.pk %}" class="d-inline">
+            {% csrf_token %}<button class="btn btn-sm btn-outline-danger">×</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="10" class="text-muted">Нет узлов</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tab-pane fade" id="branches">
+    <a href="{% url 'item_create' project.pk 'branch' %}" class="btn btn-sm btn-primary mb-2">+ Ветвь</a>
+    <table class="table table-sm table-bordered align-middle">
+      <thead><tr><th>Имя</th><th>Тип</th><th>Узел 1</th><th>Узел 2</th><th>Узел 3</th>
+        <th>R₁, Ом</th><th>X₁, Ом</th><th>B шунта, См</th><th>U₁/U₂/U₃, кВ</th><th></th></tr></thead>
+      <tbody>
+      {% for b in branches %}
+      <tr>
+        <td>{{ b.branch_name }}</td><td>{{ b.get_kind_display }}</td>
+        <td>{{ b.node_1.node_name }}</td><td>{{ b.node_2.node_name }}</td><td>{{ b.node_3.node_name|default:"—" }}</td>
+        <td>{{ b.r_1 }}</td><td>{{ b.x_1 }}</td><td>{{ b.b_shunt }}</td>
+        <td>{{ b.u_1|default:"—" }} / {{ b.u_2|default:"—" }} / {{ b.u_3|default:"—" }}</td>
+        <td class="text-nowrap">
+          <a href="{% url 'item_edit' project.pk 'branch' b.pk %}" class="btn btn-sm btn-outline-secondary">Изм.</a>
+          <form method="post" action="{% url 'item_delete' project.pk 'branch' b.pk %}" class="d-inline">
+            {% csrf_token %}<button class="btn btn-sm btn-outline-danger">×</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="10" class="text-muted">Нет ветвей</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tab-pane fade" id="loads">
+    <a href="{% url 'item_create' project.pk 'load' %}" class="btn btn-sm btn-primary mb-2">+ Нагрузка</a>
+    <table class="table table-sm table-bordered align-middle">
+      <thead><tr><th>Имя</th><th>P₀, МВт</th><th>Q₀, Мвар</th><th>U₀, кВ</th>
+        <th>Z/I/P (P)</th><th>Z/I/P (Q)</th><th></th></tr></thead>
+      <tbody>
+      {% for l in loads %}
+      <tr>
+        <td>{{ l.load_name }}</td><td>{{ l.p_0 }}</td><td>{{ l.q_0 }}</td><td>{{ l.u_0 }}</td>
+        <td>{{ l.z_p }}/{{ l.i_p }}/{{ l.p_p }}</td><td>{{ l.z_q }}/{{ l.i_q }}/{{ l.p_q }}</td>
+        <td class="text-nowrap">
+          <a href="{% url 'item_edit' project.pk 'load' l.pk %}" class="btn btn-sm btn-outline-secondary">Изм.</a>
+          <form method="post" action="{% url 'item_delete' project.pk 'load' l.pk %}" class="d-inline">
+            {% csrf_token %}<button class="btn btn-sm btn-outline-danger">×</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="7" class="text-muted">Нет нагрузок</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tab-pane fade" id="runs">
+    <table class="table table-sm table-bordered align-middle">
+      <thead><tr><th>Время</th><th>Статус</th><th>Сообщение</th><th></th></tr></thead>
+      <tbody>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.created_at|date:"d.m.Y H:i:s" }}</td>
+        <td>{% if r.success %}<span class="badge bg-success">OK</span>{% else %}<span class="badge bg-danger">Ошибка</span>{% endif %}</td>
+        <td class="small">{{ r.message|truncatechars:120 }}</td>
+        <td><a href="{% url 'run_detail' project.pk r.pk %}" class="btn btn-sm btn-outline-primary">Открыть</a></td>
+      </tr>
+      {% empty %}<tr><td colspan="4" class="text-muted">Расчетов еще не было</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}
