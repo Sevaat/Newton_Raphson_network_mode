@@ -194,22 +194,33 @@ class FileManager(ABC):
         return Parameters.model_validate(parameters_data)
 
     @staticmethod
-    def load(filename: str) -> tuple[list[Load], list[Node], list[Any], Parameters]:
-        """Загрузить данные из JSON
+    def from_dict(data: dict[str, Any]) -> tuple[list[Load], list[Node], list[Any], Parameters]:
+        """Разобрать и провалидировать данные в формате входного JSON (без чтения файла)
 
         Args:
-            filename (str, optional): название файла JSON в папке 'data'
+            data (dict[str, Any]): словарь данных в формате входного JSON
 
         Returns:
             tuple[list[Load], list[Node], list[Branch], Parameters]: данные о сети и расчете
         """
-        data = FileManager._load_data(filename)
         loads = FileManager._load_loads(data)
         nodes = FileManager._load_nodes(data, loads)
         branches = FileManager._load_branches(data, nodes)
         parameters = FileManager._load_parameter(data)
 
         return loads, nodes, branches, parameters
+
+    @staticmethod
+    def load(filename: str) -> tuple[list[Load], list[Node], list[Any], Parameters]:
+        """Загрузить данные из JSON
+
+        Args:
+            filename (str): название файла JSON в папке 'data'
+
+        Returns:
+            tuple[list[Load], list[Node], list[Branch], Parameters]: данные о сети и расчете
+        """
+        return FileManager.from_dict(FileManager._load_data(filename))
 
     @staticmethod
     def _save_data(data: dict[str, Any], filename: str):
@@ -237,26 +248,27 @@ class FileManager(ABC):
         logger.info("Результаты сохранены: %s", filepath)
 
     @staticmethod
-    def save(
+    def to_dict(
         loads: list[Load],
         nodes: list[Node],
         branches: list[Any],
         parameters: Parameters,
         slack_powers: list[Any] | None = None,
         flows: list[Any] | None = None,
-    ):
-        """
-        Сохранить результаты расчета установившегося режима в JSON (папка 'result')
+    ) -> dict[str, Any]:
+        """Собрать словарь данных в формате JSON результатов (без записи файла)
 
         Args:
+            loads (list[Load]): нагрузки сети
             nodes (list[Node]): узлы после расчета
             branches (list[Any]): ветви сети
             parameters (Parameters): параметры расчета
             slack_powers (list[Any] | None): мощности балансирующих узлов (SlackPower), опционально
             flows (list[Any] | None): потоки в ветвях (BranchFlow), опционально
-        """
-        filename = f"result_{datetime.now()}.json"
 
+        Returns:
+            dict[str, Any]: словарь данных в формате JSON результатов
+        """
         branch_line_results = []
         branch_t2_results = []
         branch_t3_results = []
@@ -302,6 +314,30 @@ class FileManager(ABC):
                 "dp": sum(item.dp for item in flows),
                 "dq": sum(item.dq for item in flows),
             }
+        return data
+
+    @staticmethod
+    def save(
+        loads: list[Load],
+        nodes: list[Node],
+        branches: list[Any],
+        parameters: Parameters,
+        slack_powers: list[Any] | None = None,
+        flows: list[Any] | None = None,
+    ):
+        """
+        Сохранить результаты расчета установившегося режима в JSON (папка 'result')
+
+        Args:
+            loads (list[Load]): нагрузки сети
+            nodes (list[Node]): узлы после расчета
+            branches (list[Any]): ветви сети
+            parameters (Parameters): параметры расчета
+            slack_powers (list[Any] | None): мощности балансирующих узлов (SlackPower), опционально
+            flows (list[Any] | None): потоки в ветвях (BranchFlow), опционально
+        """
+        data = FileManager.to_dict(loads, nodes, branches, parameters, slack_powers, flows)
+        filename = f"result_{datetime.now()}.json"
         FileManager._save_data(data, filename)
 
 

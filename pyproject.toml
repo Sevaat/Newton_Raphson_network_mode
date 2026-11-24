@@ -31,6 +31,10 @@ dev = [
     "pytest (>=9.2.0,<10.0.0)",
     "pytest-cov (>=7.1.0,<8.0.0)"
 ]
+web = [
+    "django (>=6.0,<7.0)",
+    "djangorestframework (>=3.16,<4.0)"
+]
 
 [tool.mypy]
 disallow_untyped_defs = true
